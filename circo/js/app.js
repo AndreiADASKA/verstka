@@ -5,12 +5,12 @@
         function testWebP(callback) {
             let webP = new Image;
             webP.onload = webP.onerror = function() {
-                callback(webP.height == 2);
+                callback(2 == webP.height);
             };
             webP.src = "data:image/webp;base64,UklGRjoAAABXRUJQVlA4IC4AAACyAgCdASoCAAIALmk0mk0iIiIiIgBoSygABc6WWgAA/veff/0PP8bA//LwYAAA";
         }
         testWebP((function(support) {
-            let className = support === true ? "webp" : "no-webp";
+            let className = true === support ? "webp" : "no-webp";
             document.documentElement.classList.add(className);
         }));
     }
@@ -34,6 +34,117 @@
             return isMobile.Android() || isMobile.BlackBerry() || isMobile.iOS() || isMobile.Opera() || isMobile.Windows();
         }
     };
+    function addLoadedClass() {
+        if (!document.documentElement.classList.contains("loading")) window.addEventListener("load", (function() {
+            setTimeout((function() {
+                document.documentElement.classList.add("loaded");
+            }), 0);
+        }));
+    }
+    function functions_FLS(message) {
+        setTimeout((() => {
+            if (window.FLS) console.log(message);
+        }), 0);
+    }
+    function uniqArray(array) {
+        return array.filter((function(item, index, self) {
+            return self.indexOf(item) === index;
+        }));
+    }
+    class ScrollWatcher {
+        constructor(props) {
+            let defaultConfig = {
+                logging: true
+            };
+            this.config = Object.assign(defaultConfig, props);
+            this.observer;
+            !document.documentElement.classList.contains("watcher") ? this.scrollWatcherRun() : null;
+        }
+        scrollWatcherUpdate() {
+            this.scrollWatcherRun();
+        }
+        scrollWatcherRun() {
+            document.documentElement.classList.add("watcher");
+            this.scrollWatcherConstructor(document.querySelectorAll("[data-watch]"));
+        }
+        scrollWatcherConstructor(items) {
+            if (items.length) {
+                this.scrollWatcherLogging(`Прокинувся, стежу за об'єктами (${items.length})...`);
+                let uniqParams = uniqArray(Array.from(items).map((function(item) {
+                    return `${item.dataset.watchRoot ? item.dataset.watchRoot : null}|${item.dataset.watchMargin ? item.dataset.watchMargin : "0px"}|${item.dataset.watchThreshold ? item.dataset.watchThreshold : 0}`;
+                })));
+                uniqParams.forEach((uniqParam => {
+                    let uniqParamArray = uniqParam.split("|");
+                    let paramsWatch = {
+                        root: uniqParamArray[0],
+                        margin: uniqParamArray[1],
+                        threshold: uniqParamArray[2]
+                    };
+                    let groupItems = Array.from(items).filter((function(item) {
+                        let watchRoot = item.dataset.watchRoot ? item.dataset.watchRoot : null;
+                        let watchMargin = item.dataset.watchMargin ? item.dataset.watchMargin : "0px";
+                        let watchThreshold = item.dataset.watchThreshold ? item.dataset.watchThreshold : 0;
+                        if (String(watchRoot) === paramsWatch.root && String(watchMargin) === paramsWatch.margin && String(watchThreshold) === paramsWatch.threshold) return item;
+                    }));
+                    let configWatcher = this.getScrollWatcherConfig(paramsWatch);
+                    this.scrollWatcherInit(groupItems, configWatcher);
+                }));
+            } else this.scrollWatcherLogging("Сплю, немає об'єктів для стеження. ZzzZZzz");
+        }
+        getScrollWatcherConfig(paramsWatch) {
+            let configWatcher = {};
+            if (document.querySelector(paramsWatch.root)) configWatcher.root = document.querySelector(paramsWatch.root); else if ("null" !== paramsWatch.root) this.scrollWatcherLogging(`Эмм... батьківського об'єкта ${paramsWatch.root} немає на сторінці`);
+            configWatcher.rootMargin = paramsWatch.margin;
+            if (paramsWatch.margin.indexOf("px") < 0 && paramsWatch.margin.indexOf("%") < 0) {
+                this.scrollWatcherLogging(`йой, налаштування data-watch-margin потрібно задавати в PX або %`);
+                return;
+            }
+            if ("prx" === paramsWatch.threshold) {
+                paramsWatch.threshold = [];
+                for (let i = 0; i <= 1; i += .005) paramsWatch.threshold.push(i);
+            } else paramsWatch.threshold = paramsWatch.threshold.split(",");
+            configWatcher.threshold = paramsWatch.threshold;
+            return configWatcher;
+        }
+        scrollWatcherCreate(configWatcher) {
+            this.observer = new IntersectionObserver(((entries, observer) => {
+                entries.forEach((entry => {
+                    this.scrollWatcherCallback(entry, observer);
+                }));
+            }), configWatcher);
+        }
+        scrollWatcherInit(items, configWatcher) {
+            this.scrollWatcherCreate(configWatcher);
+            items.forEach((item => this.observer.observe(item)));
+        }
+        scrollWatcherIntersecting(entry, targetElement) {
+            if (entry.isIntersecting) {
+                !targetElement.classList.contains("_watcher-view") ? targetElement.classList.add("_watcher-view") : null;
+                this.scrollWatcherLogging(`Я бачу ${targetElement.classList}, додав клас _watcher-view`);
+            } else {
+                targetElement.classList.contains("_watcher-view") ? targetElement.classList.remove("_watcher-view") : null;
+                this.scrollWatcherLogging(`Я не бачу ${targetElement.classList}, прибрав клас _watcher-view`);
+            }
+        }
+        scrollWatcherOff(targetElement, observer) {
+            observer.unobserve(targetElement);
+            this.scrollWatcherLogging(`Я перестав стежити за ${targetElement.classList}`);
+        }
+        scrollWatcherLogging(message) {
+            this.config.logging ? functions_FLS(`[Спостерігач]: ${message}`) : null;
+        }
+        scrollWatcherCallback(entry, observer) {
+            const targetElement = entry.target;
+            this.scrollWatcherIntersecting(entry, targetElement);
+            targetElement.hasAttribute("data-watch-once") && entry.isIntersecting ? this.scrollWatcherOff(targetElement, observer) : null;
+            document.dispatchEvent(new CustomEvent("watcherCallback", {
+                detail: {
+                    entry
+                }
+            }));
+        }
+    }
+    modules_flsModules.watcher = new ScrollWatcher({});
     class FullPage {
         constructor(element, options) {
             let config = {
@@ -122,13 +233,11 @@
             this.nextSectionId = this.activeSectionId + 1 < this.sections.length ? this.activeSectionId + 1 : false;
             this.activeSection = this.sections[this.activeSectionId];
             this.activeSection.classList.add(this.options.activeClass);
-            for (let index = 0; index < this.sections.length; index++) document.documentElement.classList.remove(`fp-section-${index}`);
-            document.documentElement.classList.add(`fp-section-${this.activeSectionId}`);
-            if (this.previousSectionId !== false) {
+            if (false !== this.previousSectionId) {
                 this.previousSection = this.sections[this.previousSectionId];
                 this.previousSection.classList.add(this.options.previousClass);
             } else this.previousSection = false;
-            if (this.nextSectionId !== false) {
+            if (false !== this.nextSectionId) {
                 this.nextSection = this.sections[this.nextSectionId];
                 this.nextSection.classList.add(this.options.nextClass);
             } else this.nextSection = false;
@@ -208,10 +317,10 @@
                 const section = this.sections[index];
                 if (index === this.activeSectionId) {
                     section.style.opacity = "1";
-                    section.style.pointerEvents = "all";
+                    section.style.visibility = "visible";
                 } else {
                     section.style.opacity = "0";
-                    section.style.pointerEvents = "none";
+                    section.style.visibility = "hidden";
                 }
             }
         }
@@ -299,7 +408,7 @@
                 this.clickOrTouch = true;
                 if (isMobile.iOS()) {
                     if (this._eventElement.scrollHeight !== this._eventElement.clientHeight) {
-                        if (this._eventElement.scrollTop === 0) this._eventElement.scrollTop = 1;
+                        if (0 === this._eventElement.scrollTop) this._eventElement.scrollTop = 1;
                         if (this._eventElement.scrollTop === this._eventElement.scrollHeight - this._eventElement.clientHeight) this._eventElement.scrollTop = this._eventElement.scrollHeight - this._eventElement.clientHeight - 1;
                     }
                     this.allowUp = this._eventElement.scrollTop > 0;
@@ -328,9 +437,10 @@
             return this.clickOrTouch = false;
         }
         transitionend(e) {
-            this.stopEvent = false;
-            document.documentElement.classList.remove(this.options.wrapperAnimatedClass);
-            this.wrapper.classList.remove(this.options.wrapperAnimatedClass);
+            if (e.target.closest(this.options.selectorSection)) {
+                this.stopEvent = false;
+                this.wrapper.classList.remove(this.options.wrapperAnimatedClass);
+            }
         }
         wheel(e) {
             if (e.target.closest(this.options.noEventSelector)) return;
@@ -340,41 +450,25 @@
             if (this.goScroll) this.choiceOfDirection(yCoord);
         }
         choiceOfDirection(direction) {
-            if (direction > 0 && this.nextSection !== false) this.activeSectionId = this.activeSectionId + 1 < this.sections.length ? ++this.activeSectionId : this.activeSectionId; else if (direction < 0 && this.previousSection !== false) this.activeSectionId = this.activeSectionId - 1 >= 0 ? --this.activeSectionId : this.activeSectionId;
-            this.switchingSection(this.activeSectionId, direction);
-        }
-        switchingSection(idSection = this.activeSectionId, direction) {
-            if (!direction) if (idSection < this.activeSectionId) direction = -100; else if (idSection > this.activeSectionId) direction = 100;
-            this.activeSectionId = idSection;
             this.stopEvent = true;
-            if (this.previousSectionId === false && direction < 0 || this.nextSectionId === false && direction > 0) this.stopEvent = false;
-            if (this.stopEvent) {
-                document.documentElement.classList.add(this.options.wrapperAnimatedClass);
-                this.wrapper.classList.add(this.options.wrapperAnimatedClass);
-                this.removeClasses();
-                this.setClasses();
-                this.setStyle();
-                if (this.options.bullets) this.setActiveBullet(this.activeSectionId);
-                let delaySection;
-                if (direction < 0) {
-                    delaySection = this.activeSection.dataset.fpDirectionUp ? parseInt(this.activeSection.dataset.fpDirectionUp) : 500;
-                    document.documentElement.classList.add("fp-up");
-                    document.documentElement.classList.remove("fp-down");
-                } else {
-                    delaySection = this.activeSection.dataset.fpDirectionDown ? parseInt(this.activeSection.dataset.fpDirectionDown) : 500;
-                    document.documentElement.classList.remove("fp-up");
-                    document.documentElement.classList.add("fp-down");
+            if (0 === this.activeSectionId && direction < 0 || this.activeSectionId === this.sections.length - 1 && direction > 0) this.stopEvent = false;
+            if (direction > 0 && false !== this.nextSection) this.activeSectionId = this.activeSectionId + 1 < this.sections.length ? ++this.activeSectionId : this.activeSectionId; else if (direction < 0 && false !== this.previousSection) this.activeSectionId = this.activeSectionId - 1 >= 0 ? --this.activeSectionId : this.activeSectionId;
+            if (this.stopEvent) this.switchingSection();
+        }
+        switchingSection(idSection = this.activeSectionId) {
+            this.activeSectionId = idSection;
+            this.wrapper.classList.add(this.options.wrapperAnimatedClass);
+            this.wrapper.addEventListener("transitionend", this.events.transitionEnd);
+            this.removeClasses();
+            this.setClasses();
+            this.setStyle();
+            if (this.options.bullets) this.setActiveBullet(this.activeSectionId);
+            this.options.onSwitching(this);
+            document.dispatchEvent(new CustomEvent("fpswitching", {
+                detail: {
+                    fp: this
                 }
-                setTimeout((() => {
-                    this.events.transitionEnd();
-                }), delaySection);
-                this.options.onSwitching(this);
-                document.dispatchEvent(new CustomEvent("fpswitching", {
-                    detail: {
-                        fp: this
-                    }
-                }));
-            }
+            }));
         }
         setBullets() {
             this.bulletsWrapper = document.querySelector(`.${this.options.bulletsClass}`);
@@ -407,6 +501,37 @@
     }
     if (document.querySelector("[data-fp]")) modules_flsModules.fullpage = new FullPage(document.querySelector("[data-fp]"), "");
     let addWindowScrollEvent = false;
+    function digitsCounter() {
+        if (document.querySelectorAll("[data-digits-counter]").length) document.querySelectorAll("[data-digits-counter]").forEach((element => {
+            element.dataset.digitsCounter = element.innerHTML;
+            element.innerHTML = `0`;
+        }));
+        function digitsCountersInit(digitsCountersItems) {
+            let digitsCounters = digitsCountersItems ? digitsCountersItems : document.querySelectorAll("[data-digits-counter]");
+            if (digitsCounters.length) digitsCounters.forEach((digitsCounter => {
+                digitsCountersAnimate(digitsCounter);
+            }));
+        }
+        function digitsCountersAnimate(digitsCounter) {
+            let startTimestamp = null;
+            const duration = parseInt(digitsCounter.dataset.digitsCounterSpeed) ? parseInt(digitsCounter.dataset.digitsCounterSpeed) : 1e3;
+            const startValue = parseInt(digitsCounter.dataset.digitsCounter);
+            const startPosition = 0;
+            const step = timestamp => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                digitsCounter.innerHTML = Math.floor(progress * (startPosition + startValue));
+                if (progress < 1) window.requestAnimationFrame(step);
+            };
+            window.requestAnimationFrame(step);
+        }
+        function digitsCounterAction(e) {
+            const entry = e.detail.entry;
+            const targetElement = entry.target;
+            if (targetElement.querySelectorAll("[data-digits-counter]").length) digitsCountersInit(targetElement.querySelectorAll("[data-digits-counter]"));
+        }
+        document.addEventListener("watcherCallback", digitsCounterAction);
+    }
     setTimeout((() => {
         if (addWindowScrollEvent) {
             let windowScroll = new Event("windowScroll");
@@ -417,4 +542,6 @@
     }), 0);
     window["FLS"] = true;
     isWebp();
+    addLoadedClass();
+    digitsCounter();
 })();
